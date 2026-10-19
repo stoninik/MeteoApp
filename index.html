@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Метео Радар - Южно Черноморие</title>
+    
+    <!-- Стабилно зареждане на Leaflet CSS през cdnjs -->
+    <link rel="stylesheet" href="https://cloudflare.com" />
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>⚓ Метеорологичен Мониторинг & Прогноза</h1>
+            <p>Южно Черноморие (Бургаски залив - Резово) на база корабни данни и буйове</p>
+        </header>
+
+        <!-- Секция с Картата -->
+        <div class="card">
+            <div id="map"></div>
+        </div>
+
+        <!-- Секция с Изчислените Моментни Стойности -->
+        <div class="stats-grid">
+            <div class="stat-box">
+                <h3>Избрана локация на брега</h3>
+                <p id="selected-location" class="highlight">Созопол (Плаж Харманите)</p>
+            </div>
+            <div class="stat-box">
+                <h3>Изчислена моментална скорост на вятъра</h3>
+                <p id="current-wind" class="value">-- възела</p>
+                <small>Изчислено чрез IDW интерполация от корабите</small>
+            </div>
+        </div>
+
+        <!-- Секция с Графиката за Прогноза -->
+        <div class="card">
+            <h2>📈 Математическа прогноза за следващите 10 часа</h2>
+            <div class="chart-container">
+                <canvas id="forecastChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Зареждане на Leaflet.js -->
+    <script src="https://cloudflare.com"></script>
+    <!-- Зареждане на Chart.js -->
+    <script src="https://cloudflare.com"></script>
+    <!-- Логиката на приложението -->
+    <script src="app.js"></script>
+</body>
+</html>
