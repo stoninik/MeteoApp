@@ -4,49 +4,109 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Метео Радар - Южно Черноморие</title>
-    
-    <!-- Стабилно зареждане на Leaflet CSS през cdnjs -->
-    <link rel="stylesheet" href="https://cloudflare.com" />
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background-color: #f0f4f8; color: #2d3748; padding: 20px; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        header { text-align: center; margin-bottom: 25px; }
+        h1 { color: #1a365d; margin-bottom: 5px; }
+        .card { background: #ffffff; border-radius: 12px; padding: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        #map { height: 450px; width: 100%; border-radius: 8px; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        @media (max-width: 768px) { .stats-grid { grid-template-columns: 1fr; } }
+        .stat-box { background: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); border-left: 5px solid #3182ce; text-align: center; }
+        .value { font-size: 2.2rem; font-weight: bold; color: #2b6cb0; }
+        .highlight { font-size: 1.4rem; font-weight: 600; color: #1a202c; }
+        .chart-container { position: relative; height: 300px; width: 100%; }
+    </style>
 </head>
 <body>
-
     <div class="container">
         <header>
             <h1>⚓ Метеорологичен Мониторинг & Прогноза</h1>
-            <p>Южно Черноморие (Бургаски залив - Резово) на база корабни данни и буйове</p>
+            <p>Южно Черноморие (Бургаски залив - Резово)</p>
         </header>
-
-        <!-- Секция с Картата -->
-        <div class="card">
-            <div id="map"></div>
-        </div>
-
-        <!-- Секция с Изчислените Моментни Стойности -->
+        <div class="card"><div id="map"></div></div>
         <div class="stats-grid">
-            <div class="stat-box">
-                <h3>Избрана локация на брега</h3>
-                <p id="selected-location" class="highlight">Созопол (Плаж Харманите)</p>
-            </div>
-            <div class="stat-box">
-                <h3>Изчислена моментална скорост на вятъра</h3>
-                <p id="current-wind" class="value">-- възела</p>
-                <small>Изчислено чрез IDW интерполация от корабите</small>
-            </div>
+            <div class="stat-box"><h3>Локация</h3><p id="selected-location" class="highlight">Созопол (Плаж Харманите)</p></div>
+            <div class="stat-box"><h3>Вятър на брега</h3><p id="current-wind" class="value">-- възела</p></div>
         </div>
-
-        <!-- Секция с Графиката за Прогноза -->
         <div class="card">
-            <h2>📈 Математическа прогноза за следващите 10 часа</h2>
-            <div class="chart-container">
-                <canvas id="forecastChart"></canvas>
-            </div>
+            <h2>Прогноза за следващите 10 часа</h2>
+            <div class="chart-container"><canvas id="forecastChart"></canvas></div>
         </div>
     </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const map = L.map('map').setView([42.42, 27.75], 10);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
 
-    <!-- Зареждане на библиотеките през cdnjs -->
-    <script src="https://cloudflare.com"></script>
-    <script src="https://cloudflare.com"></script>
-    <script src="app.js"></script>
+        const targetLocation = { name: "Созопол (Бряг)", lat: 42.416, lon: 27.697 };
+        L.marker([targetLocation.lat, targetLocation.lon]).addTo(map).bindPopup(targetLocation.name);
+
+        const shipsAndBuoys = [
+            { name: "Burgas Cargo", lat: 42.48, lon: 27.62, windSpeed: 14.5 },
+            { name: "Black Sea Star", lat: 42.52, lon: 27.91, windSpeed: 18.2 },
+            { name: "Буй №3", lat: 42.31, lon: 27.82, windSpeed: 11.0 },
+            { name: "Sea Comet", lat: 42.25, lon: 27.78, windSpeed: 9.5 }
+        ];
+
+        shipsAndBuoys.forEach(data => {
+            L.marker([data.lat, data.lon]).addTo(map).bindPopup(data.name + ": " + data.windSpeed + " възела");
+        });
+
+        function getDist(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2-lat1)*Math.PI/180;
+            const dLon = (lon2-lon1)*Math.PI/180;
+            const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        let totalW = 0, weightedSum = 0;
+        shipsAndBuoys.forEach(s => {
+            let d = getDist(targetLocation.lat, targetLocation.lon, s.lat, s.lon);
+            let w = 1 / (d * d);
+            totalW += w;
+            weightedSum += s.windSpeed * w;
+        });
+        const currentWind = totalW === 0 ? 0 : weightedSum / totalW;
+        document.getElementById('current-wind').innerText = currentWind.toFixed(1) + " възела";
+
+        const history = [{t:-3,v:9.2},{t:-2,v:11.5},{t:-1,v:12.8},{t:0,v:currentWind}];
+        let n = history.length, sumX=0, sumY=0, sumXY=0, sumXX=0;
+        history.forEach(p=>{ sumX+=p.t; sumY+=p.v; sumXY+=p.t*p.v; sumXX+=p.t*p.t; });
+        let slope = (n*sumXY - sumX*sumY) / (n*sumXX - sumX*sumX);
+        let intercept = (sumY - slope*sumX) / n;
+
+        let labels = ['Сега'];
+        let dataV = [parseFloat(currentWind.toFixed(1))];
+        for(let h=1; h<=10; h++) {
+            labels.push("+" + h + " ч.");
+            let v = slope * h + intercept;
+            dataV.push(parseFloat((v < 0 ? 0 : v).toFixed(1)));
+        }
+
+        const ctx = document.getElementById('forecastChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Вятър (възела)',
+                    data: dataV,
+                    borderColor: '#3182ce',
+                    backgroundColor: 'rgba(49,130,206,0.1)',
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    </script>
 </body>
 </html>
